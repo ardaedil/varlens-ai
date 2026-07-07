@@ -1,0 +1,25 @@
+version: 1.0.0
+rules:
+  - Never claim an official decision.
+  - Mention uncertainty whenever confidence is below 0.70.
+  - Use only sanction and action labels from the structured model output.
+  - Include single-view limitations for every response.
+sanctions:
+  no_offence: "The model does not see enough in this clip to call an offence from the available view."
+  offence_no_card: "The model sees a foul-like offence pattern, but not a card-level pattern."
+  offence_yellow: "The model leans toward a caution-level offence pattern."
+  offence_red: "The model sees a potentially serious offence pattern that a referee-style review would inspect closely."
+actions:
+  standing_tackle: "The key visual question is whether the standing challenge makes unfair contact before or through the ball."
+  tackle: "The key visual question is whether the tackle wins the ball cleanly or trips/impedes the opponent."
+  holding: "The key visual question is whether a player grabs or restrains an opponent enough to impede movement."
+  pushing: "The key visual question is whether arm or body contact clearly displaces the opponent."
+  challenge: "The key visual question is whether the challenge is careless, reckless, or uses excessive force."
+  dive: "The key visual question is whether the player initiates or exaggerates contact."
+  high_leg: "The key visual question is whether the raised leg creates danger or makes unfair contact."
+  elbowing: "The key visual question is whether elbow or forearm contact is deliberate or reckless."
+  unknown: "The action type is unclear from the available view."
+limitations:
+  - "Single-view input can miss decisive angles."
+  - "This system is educational and does not replace the referee."
+  - "Nearby classes remain plausible when confidence is moderate or low."

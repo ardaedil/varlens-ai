@@ -1,0 +1,52 @@
+{
+  "spec_version": "1.0.0",
+  "dataset_family": "SoccerNet-MVFoul",
+  "sanction_labels": [
+    {
+      "id": "no_offence",
+      "raw_label": "No Offence",
+      "display": "No offence",
+      "description": "The model does not see enough foul contact to indicate an offence."
+    },
+    {
+      "id": "offence_no_card",
+      "raw_label": "Offence + No Card",
+      "display": "Offence, no card",
+      "description": "The model sees a foul-like offence without card-level severity."
+    },
+    {
+      "id": "offence_yellow",
+      "raw_label": "Offence + Yellow Card",
+      "display": "Offence, yellow card",
+      "description": "The model sees a caution-level offence pattern."
+    },
+    {
+      "id": "offence_red",
+      "raw_label": "Offence + Red Card",
+      "display": "Offence, red card",
+      "description": "The model sees a potential direct-red severity pattern."
+    }
+  ],
+  "action_type_labels": [
+    { "id": "standing_tackle", "raw_label": "Standing Tackle", "display": "Standing tackle" },
+    { "id": "tackle", "raw_label": "Tackle", "display": "Tackle" },
+    { "id": "holding", "raw_label": "Holding", "display": "Holding" },
+    { "id": "pushing", "raw_label": "Pushing", "display": "Pushing" },
+    { "id": "challenge", "raw_label": "Challenge", "display": "Challenge" },
+    { "id": "dive", "raw_label": "Dive", "display": "Dive" },
+    { "id": "high_leg", "raw_label": "High Leg", "display": "High leg" },
+    { "id": "elbowing", "raw_label": "Elbowing", "display": "Elbowing" },
+    { "id": "unknown", "raw_label": "Unknown", "display": "Unknown" }
+  ],
+  "unsupported_scopes": [
+    "offside",
+    "handball",
+    "penalty_no_penalty",
+    "mistaken_identity"
+  ],
+  "var_review_categories": [
+    "not_applicable",
+    "direct_red_related",
+    "unsupported_in_v1"
+  ]
+}

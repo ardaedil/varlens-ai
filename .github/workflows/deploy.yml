@@ -1,0 +1,18 @@
+name: deploy
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  production-gate:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          echo "Deployment is intentionally gated."
+          echo "Confirm upload retention, rate limiting, model version, and clip rights before release."

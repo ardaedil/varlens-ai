@@ -1,0 +1,21 @@
+name: model-check
+
+on:
+  pull_request:
+    paths:
+      - "config/**"
+      - "data/**"
+      - "training/**"
+      - "packages/contracts/**"
+      - ".github/workflows/model-check.yml"
+
+jobs:
+  dry-run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python data/download_soccernet.py --dry-run
+      - run: python training/export_model_card.py --model-version videomae-mvfoul-v1-stub --output output/model-card.md

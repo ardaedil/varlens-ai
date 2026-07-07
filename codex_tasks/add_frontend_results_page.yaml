@@ -1,0 +1,13 @@
+name: add_frontend_results_page
+goal: Build the Next.js results view for VARLens v1.
+inputs:
+  - packages/contracts/analyze.schema.json
+  - docs/SPEC.md
+instructions:
+  - Use shared TypeScript contracts.
+  - Show uncertainty, alternatives, and limitations clearly.
+  - Add loading, error, and unsupported-scope states.
+deliverables:
+  - apps/web/app/analyze/page.tsx
+  - apps/web/components/result-card.tsx
+  - apps/web/components/analyze-workbench.tsx

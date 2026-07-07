@@ -1,0 +1,5 @@
+{
+  "clip_duration_seconds": 30,
+  "expected_status": 422,
+  "expected_code": "clip_too_long"
+}

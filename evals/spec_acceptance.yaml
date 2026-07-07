@@ -1,0 +1,38 @@
+version: 1
+cases:
+  - id: UT-001
+    target: label_mapping
+    input: "Offence + Yellow Card"
+    expected: "offence_yellow"
+  - id: UT-002
+    target: unsupported_scope
+    input: "offside"
+    expected: "unsupported_scope"
+  - id: UT-003
+    target: explanation_honesty
+    input: "low confidence sanction prediction"
+    expected: "limitation text and no official decision claim"
+  - id: UT-004
+    target: schema_consistency
+    input: "generated response object"
+    expected: "passes analyze.schema.json"
+  - id: UT-005
+    target: privacy_deletion
+    input: "successful analysis"
+    expected: "temporary upload deleted in default mode"
+  - id: IT-001
+    target: valid_upload_flow
+    input: "8-second MP4"
+    expected: "200 response with schema-compliant JSON and visible result UI"
+  - id: IT-002
+    target: long_clip
+    input: "30-second MP4"
+    expected: "422 clip_too_long"
+  - id: IT-003
+    target: bad_media
+    input: "text/plain upload"
+    expected: "415 unsupported_media_type"
+  - id: IT-004
+    target: model_unavailable
+    input: "backend degraded"
+    expected: "503 model_unavailable"

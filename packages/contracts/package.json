@@ -1,0 +1,10 @@
+{
+  "name": "@varlens/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./analyze.ts",
+    "./schema": "./analyze.schema.json"
+  }
+}

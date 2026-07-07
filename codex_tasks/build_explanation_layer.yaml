@@ -1,0 +1,14 @@
+name: build_explanation_layer
+goal: Implement deterministic explanation generation from structured model outputs.
+inputs:
+  - packages/prompts/explanation_templates.yaml
+  - config/labels.json
+  - docs/SPEC.md
+instructions:
+  - Generate short explanations from sanction and action predictions only.
+  - Include viewer focus points and limitations.
+  - Never claim an official referee decision.
+  - Add tests for low-confidence and unsupported-scope behavior.
+deliverables:
+  - services/api/app/explanations/templates.py
+  - services/api/tests/test_explanations.py

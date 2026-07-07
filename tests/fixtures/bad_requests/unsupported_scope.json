@@ -1,0 +1,5 @@
+{
+  "scope": "offside",
+  "expected_status": 422,
+  "expected_code": "unsupported_scope"
+}

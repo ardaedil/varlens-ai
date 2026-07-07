@@ -1,0 +1,15 @@
+name: implement_analyze_endpoint
+goal: Create or update the FastAPI /api/v1/analyze endpoint for VARLens v1.
+inputs:
+  - packages/contracts/analyze.schema.json
+  - config/labels.json
+  - docs/SPEC.md
+instructions:
+  - Validate video upload, max duration, max size, and supported formats.
+  - Return only schema-compliant JSON.
+  - Do not implement offside, handball, or penalty adjudication in v1.
+  - Add unit tests for validation failures and one happy-path integration test.
+deliverables:
+  - services/api/app/routes/analyze.py
+  - services/api/app/security/uploads.py
+  - services/api/tests/test_analyze_route.py

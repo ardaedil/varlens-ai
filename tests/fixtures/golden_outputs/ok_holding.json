@@ -1,0 +1,41 @@
+{
+  "spec_version": "1.0.0",
+  "model_version": "videomae-mvfoul-v1-stub",
+  "request_id": "11111111-1111-4111-8111-111111111111",
+  "status": "ok",
+  "sanction_prediction": {
+    "label": "offence_yellow",
+    "confidence": 0.63,
+    "alternatives": [
+      { "label": "offence_no_card", "confidence": 0.24 },
+      { "label": "offence_red", "confidence": 0.09 }
+    ]
+  },
+  "action_type_prediction": {
+    "label": "holding",
+    "confidence": 0.58,
+    "alternatives": [
+      { "label": "pushing", "confidence": 0.21 }
+    ]
+  },
+  "viewer_focus": [
+    "Check whether the defender grabs and impedes the attacker.",
+    "Check whether the attacker keeps control of the ball after contact.",
+    "Check whether the available angle hides decisive contact."
+  ],
+  "explanation": "The model leans toward a caution-level offence pattern. The key visual question is whether a player grabs or restrains an opponent enough to impede movement. Confidence is not high, so nearby classes should remain in view. This is not a definitive decision, and the referee remains the final authority.",
+  "limitations": [
+    "Single-view input can miss decisive angles.",
+    "This system is educational and does not replace the referee.",
+    "Confidence is moderate, so nearby classes remain plausible."
+  ],
+  "review_context": {
+    "var_review_category": "not_applicable",
+    "official_decision_claimed": false
+  },
+  "provenance": {
+    "dataset_family": "SoccerNet-MVFoul",
+    "rules_source": "IFAB Laws 2026/27",
+    "frames_sampled": 16
+  }
+}
