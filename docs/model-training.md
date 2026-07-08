@@ -4,6 +4,22 @@ This repository now includes a first real pass at the MVFoul model workflow. It 
 
 ## Workflow
 
+For a one-command orchestrated pass, use:
+
+```bash
+python -m training.run_mvfoul_pipeline --annotations path/to/train.json path/to/valid.json path/to/test.json --video-root path/to/mvfoul/videos --output-root output/mvfoul-pipeline --phase dry-run
+```
+
+That writes:
+
+- `output/mvfoul-pipeline/mvfoul_manifest.json`
+- `output/mvfoul-pipeline/sanction/...`
+- `output/mvfoul-pipeline/action/...`
+- `output/mvfoul-pipeline/api-serving.env`
+- `output/mvfoul-pipeline/pipeline-summary.json`
+
+If your annotation files use nonstandard split naming or only cover one split during a smoke check, pass `--train-split`, `--eval-split`, and `--test-split` explicitly.
+
 1. Build a manifest from authorized MVFoul annotations:
 
 ```bash
@@ -54,6 +70,7 @@ VARLENS_ACTION_MODEL_DIR=output/videomae-action
 ## Notes
 
 - `data/build_mvfoul_views.py` normalizes sanction and action labels against `config/labels.json`.
+- `training.run_mvfoul_pipeline` can orchestrate manifest preparation, both task runs, evaluation, model-card export, and API env-file generation.
 - The dry-run path works without `torch`, `transformers`, or `pytorchvideo`.
 - The training path follows the VideoMAE recipe: derive normalization and resize settings from the image processor, apply temporal subsampling, and fine-tune a classification head on top of the pretrained encoder.
 - The serving path expects two fine-tuned checkpoints: one for sanction labels and one for action-type labels.
