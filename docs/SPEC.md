@@ -107,6 +107,7 @@ The intended production path is a VideoMAE classifier trained on SoccerNet-MVFou
 - Treat each available view as a training sample while preserving action grouping for evaluation.
 - Report macro F1, balanced accuracy, confusion matrices, and calibration summaries.
 - Export model version and label mapping with every model artifact.
+- Build manifests from authorized annotations rather than hard-coding dataset directories.
 
 ## Privacy Requirements
 

@@ -1,34 +1,40 @@
 from __future__ import annotations
 
 import argparse
-import json
+import sys
 from pathlib import Path
+
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from training.manifest import build_manifest_document, write_manifest
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build a per-view MVFoul training manifest.")
-    parser.add_argument("--annotations", type=Path, required=True)
+    parser.add_argument("--annotations", type=Path, nargs="+", required=True)
+    parser.add_argument("--video-root", type=Path)
+    parser.add_argument("--default-split")
+    parser.add_argument("--verify-files", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
-    annotations = json.loads(args.annotations.read_text())
-    records = []
-    for action in annotations.get("actions", []):
-        action_id = action["id"]
-        for view in action.get("views", []):
-            records.append(
-                {
-                    "action_id": action_id,
-                    "view_id": view["id"],
-                    "video_path": view["video_path"],
-                    "sanction_label": action["sanction_label"],
-                    "action_type_label": action.get("action_type_label", "unknown"),
-                }
-            )
+    document = build_manifest_document(
+        annotation_paths=args.annotations,
+        video_root=args.video_root,
+        default_split=args.default_split,
+        verify_files=args.verify_files,
+    )
+    write_manifest(document, args.output)
 
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(records, indent=2) + "\n")
-    print(f"Wrote {len(records)} view records to {args.output}")
+    summary = document["summary"]
+    print(
+        "Wrote "
+        f"{summary['record_count']} view records across {summary['action_count']} actions "
+        f"to {args.output}"
+    )
+    for split, counts in summary["split_counts"].items():
+        print(f"  {split}: {counts['records']} views / {counts['actions']} actions")
 
 
 if __name__ == "__main__":

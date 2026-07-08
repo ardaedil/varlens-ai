@@ -1,0 +1,7 @@
+accelerate
+av
+evaluate
+pytorchvideo
+torch
+torchvision
+transformers

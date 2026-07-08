@@ -35,6 +35,12 @@ Install backend dependencies:
 python -m pip install -r services/api/requirements.txt -r services/api/requirements-dev.txt
 ```
 
+Install training dependencies when you are ready to work on MVFoul fine-tuning:
+
+```bash
+python -m pip install -r training/requirements.txt
+```
+
 Run the API:
 
 ```bash
@@ -54,7 +60,9 @@ The frontend proxies analysis requests to `API_BASE_URL`, defaulting to `http://
 ```bash
 pnpm contract:check
 pnpm typecheck
-python -m pytest services/api/tests
+python -m pytest -p no:cacheprovider
 ```
 
 The current inference path is a deterministic stub that matches the response contract. Replace `services/api/app/inference/stub_model.py` with a trained VideoMAE MVFoul adapter once model artifacts are available.
+
+For the model path, see [docs/model-training.md](/C:/Users/ardae/OneDrive/Documents/Playground/docs/model-training.md).
