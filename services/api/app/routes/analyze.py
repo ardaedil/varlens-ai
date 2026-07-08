@@ -8,7 +8,8 @@ from fastapi.responses import JSONResponse
 from packages.contracts.analyze import AnalyzeResponse, Provenance, ReviewContext
 from services.api.app.core.settings import settings
 from services.api.app.explanations.templates import build_explanation
-from services.api.app.inference.stub_model import analyze_clip
+from services.api.app.inference.backend import get_inference_backend
+from services.api.app.inference.catalog import DATASET_FAMILY
 from services.api.app.security.errors import ApiError, error_response
 from services.api.app.security.uploads import (
     delete_transient_upload,
@@ -36,17 +37,18 @@ async def analyze(
         if file is None:
             raise ApiError(code="invalid_request", message="A video file is required.")
 
-        if not settings.model_available:
+        backend = get_inference_backend()
+        if not backend.info.available:
             raise ApiError(
                 code="model_unavailable",
-                message="The analysis model is not available.",
+                message=backend.info.details.get("reason", "The analysis model is not available."),
             )
 
         validate_media_type(file, settings)
         temp_path, size_bytes = await write_transient_upload(file, settings)
 
         try:
-            model_version, sanction_prediction, action_prediction = analyze_clip(
+            model_version, sanction_prediction, action_prediction = backend.analyze_clip(
                 path=temp_path,
                 filename=file.filename or "",
                 content_type=file.content_type or "",
@@ -76,7 +78,7 @@ async def analyze(
                     official_decision_claimed=False,
                 ),
                 provenance=Provenance(
-                    dataset_family="SoccerNet-MVFoul",
+                    dataset_family=DATASET_FAMILY,
                     rules_source="IFAB Laws 2026/27",
                     frames_sampled=settings.frames_sampled,
                 ),

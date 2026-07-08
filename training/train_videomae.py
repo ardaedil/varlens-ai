@@ -26,6 +26,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--eval-split")
     parser.add_argument("--test-split")
     parser.add_argument("--model-checkpoint")
+    parser.add_argument("--model-version")
     parser.add_argument("--sample-rate", type=int)
     parser.add_argument("--fps", type=int)
     parser.add_argument("--num-frames", type=int)
@@ -52,6 +53,7 @@ def load_training_config(config_path: Path, args: argparse.Namespace) -> dict[st
         "eval_split": args.eval_split,
         "test_split": args.test_split,
         "model_checkpoint": args.model_checkpoint,
+        "model_version": args.model_version,
         "sample_rate": args.sample_rate,
         "fps": args.fps,
         "num_frames": args.num_frames,
@@ -83,6 +85,7 @@ def load_training_config(config_path: Path, args: argparse.Namespace) -> dict[st
     config.setdefault("weight_decay", 0.01)
     config.setdefault("logging_steps", 10)
     config.setdefault("save_only_model", True)
+    config.setdefault("model_version", f"videomae-mvfoul-v1-{config['task']}")
     return config
 
 
@@ -125,6 +128,7 @@ def write_dry_run_summary(
         "task": config["task"],
         "label_field": label_field_for_task(config["task"]),
         "model_checkpoint": config["model_checkpoint"],
+        "model_version": config["model_version"],
         "train_split": config["train_split"],
         "eval_split": config["eval_split"],
         "test_split": config["test_split"],
@@ -386,6 +390,7 @@ def main() -> None:
         "label2id": label2id,
         "id2label": {str(key): value for key, value in id2label.items()},
         "model_checkpoint": model_checkpoint,
+        "model_version": config["model_version"],
         "sample_rate": sample_rate,
         "fps": fps,
         "num_frames": num_frames,

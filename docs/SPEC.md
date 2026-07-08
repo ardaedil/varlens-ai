@@ -99,7 +99,7 @@ Errors must use the shared error envelope:
 
 ## Model Path
 
-The current implementation uses a deterministic stub adapter in `services/api/app/inference/stub_model.py`. It is contract-compliant and exists to unblock API, UI, and test development.
+The current implementation includes both a deterministic stub adapter and a real VideoMAE backend loader. In `auto` mode, the API falls back to the stub when trained artifacts are missing or the ML stack is not installed. This keeps API and UI development unblocked while preserving a clean path to real inference.
 
 The intended production path is a VideoMAE classifier trained on SoccerNet-MVFoul:
 

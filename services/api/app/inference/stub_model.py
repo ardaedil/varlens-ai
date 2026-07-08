@@ -5,22 +5,10 @@ from pathlib import Path
 
 from packages.contracts.analyze import (
     ActionTypePrediction,
-    MODEL_VERSION,
     SanctionPrediction,
 )
-
-SANCTION_LABELS = ["no_offence", "offence_no_card", "offence_yellow", "offence_red"]
-ACTION_LABELS = [
-    "standing_tackle",
-    "tackle",
-    "holding",
-    "pushing",
-    "challenge",
-    "dive",
-    "high_leg",
-    "elbowing",
-    "unknown",
-]
+from services.api.app.core.settings import settings
+from services.api.app.inference.catalog import ACTION_LABELS, SANCTION_LABELS
 
 
 def _digest_file(path: Path, *, filename: str, content_type: str, size_bytes: int) -> bytes:
@@ -77,7 +65,7 @@ def analyze_clip(
         offset=7,
     )
     return (
-        MODEL_VERSION,
+        settings.model_version,
         SanctionPrediction(
             label=sanction_label,
             confidence=sanction_confidence,
