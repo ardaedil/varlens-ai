@@ -201,6 +201,8 @@ def _soccernet_sanction_label(action: dict[str, Any]) -> str:
         return "no_offence"
     if offence != "offence":
         raise ManifestError(f"skip-offence:{action.get('Offence')}")
+    if severity == "":
+        return "offence_no_card"
 
     if severity in {"0", "0 0", "0.0"}:
         return "offence_no_card"
