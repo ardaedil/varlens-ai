@@ -219,6 +219,7 @@ def _soccernet_action_label(action: dict[str, Any]) -> str:
 
     aliases = {
         "standing tackle": "standing_tackle",
+        "standing tackling": "standing_tackle",
         "tackle": "tackle",
         "tackling": "tackle",
         "holding": "holding",
