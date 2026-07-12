@@ -190,7 +190,6 @@ def main() -> None:
     try:
         import numpy as np
         import torch
-        import evaluate
         from pytorchvideo.data.encoded_video import EncodedVideo
         from pytorchvideo.transforms import ApplyTransformToKey, Normalize, RandomShortSideScale
         from pytorchvideo.transforms import UniformTemporalSubsample
@@ -334,16 +333,10 @@ def main() -> None:
         labels = torch.tensor([example["label"] for example in examples])
         return {"pixel_values": pixel_values, "labels": labels}
 
-    accuracy_metric = evaluate.load("accuracy")
-
     def compute_metrics(eval_pred: Any) -> dict[str, float]:
         predictions = np.argmax(eval_pred.predictions, axis=1).tolist()
         references = eval_pred.label_ids.tolist()
         metrics = compute_classification_metrics(references, predictions, id2label=id2label)
-        metrics["accuracy"] = round(
-            accuracy_metric.compute(predictions=predictions, references=references)["accuracy"],
-            6,
-        )
         return {
             "accuracy": metrics["accuracy"],
             "macro_f1": metrics["macro_f1"],
