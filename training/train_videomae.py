@@ -348,7 +348,7 @@ def main() -> None:
     training_args = TrainingArguments(
         output_dir=str(args.output_dir),
         remove_unused_columns=False,
-        eval_strategy="epoch",
+        evaluation_strategy="epoch",
         save_strategy="epoch",
         learning_rate=config["learning_rate"],
         per_device_train_batch_size=config["per_device_train_batch_size"],
