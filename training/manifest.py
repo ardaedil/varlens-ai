@@ -178,6 +178,17 @@ def _resolve_video_path(
     return resolved, relative
 
 
+def _normalize_soccernet_clip_path(raw_path: str) -> str:
+    normalized = Path(raw_path.replace("\\", "/")).as_posix().lstrip("/")
+    parts = normalized.split("/")
+    if len(parts) >= 3 and parts[0].lower() == "dataset":
+        split_token = normalize_token(parts[1])
+        split_name = SPLIT_ALIASES.get(split_token)
+        if split_name is not None:
+            return "/".join([split_name, *parts[2:]])
+    return normalized
+
+
 def _soccernet_sanction_label(action: dict[str, Any]) -> str:
     offence = normalize_token(str(action.get("Offence", "")))
     severity = normalize_token(str(action.get("Severity", "")))
@@ -234,7 +245,7 @@ def _soccernet_views(action: dict[str, Any]) -> list[dict[str, Any]]:
         clip_url = clip.get("Url")
         if not clip_url:
             raise ManifestError("SoccerNet clip entry is missing 'Url'.")
-        clip_path = Path(str(clip_url)).as_posix()
+        clip_path = _normalize_soccernet_clip_path(str(clip_url))
         if not clip_path.lower().endswith(".mp4"):
             clip_path = f"{clip_path}.mp4"
         camera_type = str(clip.get("Camera type", ""))

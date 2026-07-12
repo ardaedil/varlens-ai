@@ -91,7 +91,7 @@ def test_load_manifest_records_and_build_label_maps():
 def test_build_manifest_document_supports_official_soccernet_actions():
     case_dir = _prepare_case_dir("training-test-manifest-soccernet")
     annotations = case_dir / "train_annotations.json"
-    video_root = case_dir / "Dataset" / "Train" / "action_0"
+    video_root = case_dir / "train" / "action_0"
     video_root.mkdir(parents=True, exist_ok=True)
     (video_root / "clip_0.mp4").write_bytes(b"fake-clip-0")
     (video_root / "clip_1.mp4").write_bytes(b"fake-clip-1")
@@ -147,3 +147,4 @@ def test_build_manifest_document_supports_official_soccernet_actions():
     assert document["summary"]["split_counts"]["train"]["actions"] == 1
     assert document["records"][0]["sanction_label"] == "offence_yellow"
     assert document["records"][0]["action_type_label"] == "challenge"
+    assert document["records"][0]["relative_video_path"] == "train/action_0/clip_0.mp4"
