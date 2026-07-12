@@ -148,3 +148,55 @@ def test_build_manifest_document_supports_official_soccernet_actions():
     assert document["records"][0]["sanction_label"] == "offence_yellow"
     assert document["records"][0]["action_type_label"] == "challenge"
     assert document["records"][0]["relative_video_path"] == "train/action_0/clip_0.mp4"
+
+
+def test_build_manifest_document_accepts_extended_soccernet_taxonomy_and_skips_handball():
+    case_dir = _prepare_case_dir("training-test-manifest-soccernet-extended")
+    annotations = case_dir / "train_annotations.json"
+    first_video_dir = case_dir / "train" / "action_0"
+    second_video_dir = case_dir / "train" / "action_1"
+    first_video_dir.mkdir(parents=True, exist_ok=True)
+    second_video_dir.mkdir(parents=True, exist_ok=True)
+    (first_video_dir / "clip_0.mp4").write_bytes(b"fake-clip-0")
+    (second_video_dir / "clip_0.mp4").write_bytes(b"fake-clip-1")
+
+    annotations.write_text(
+        """
+        {
+          "Set": "Train",
+          "Number of actions": 2,
+          "Actions": {
+            "0": {
+              "Offence": "Offence",
+              "Action class": "Standing tackling",
+              "Severity": "5.0",
+              "Handball": "No handball",
+              "Clips": [
+                { "Url": "Dataset/Train/action_0/clip_0", "Camera type": "Main camera center" }
+              ]
+            },
+            "1": {
+              "Offence": "Offence",
+              "Action class": "Shoulder charge",
+              "Severity": "0.0",
+              "Handball": "Handball",
+              "Clips": [
+                { "Url": "Dataset/Train/action_1/clip_0", "Camera type": "Main camera center" }
+              ]
+            }
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    document = build_manifest_document(
+        annotation_paths=[annotations],
+        video_root=case_dir,
+        default_split="train",
+        verify_files=True,
+    )
+
+    assert document["summary"]["record_count"] == 1
+    assert document["records"][0]["sanction_label"] == "offence_red"
+    assert document["records"][0]["action_type_label"] == "standing_tackle"

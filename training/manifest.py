@@ -195,18 +195,28 @@ def _soccernet_sanction_label(action: dict[str, Any]) -> str:
     handball = normalize_token(str(action.get("Handball", "")))
 
     if handball == "handball":
-        raise ManifestError("Handball samples are outside the current VARLens v1 foul taxonomy.")
+        raise ManifestError("skip-handball")
 
     if offence in {"", "no offence", "between"}:
         return "no_offence"
     if offence != "offence":
-        raise ManifestError(f"Unsupported offence label '{action.get('Offence')}'.")
+        raise ManifestError(f"skip-offence:{action.get('Offence')}")
 
     if severity in {"0", "0 0", "0.0"}:
         return "offence_no_card"
     if severity in {"1", "1 0", "1.0"}:
         return "offence_yellow"
     if severity in {"2", "2 0", "2.0", "3", "3 0", "3.0"}:
+        return "offence_red"
+    try:
+        severity_value = float(str(action.get("Severity", "")).strip())
+    except ValueError:
+        severity_value = None
+    if severity_value is not None:
+        if severity_value <= 0:
+            return "offence_no_card"
+        if severity_value < 2:
+            return "offence_yellow"
         return "offence_red"
     raise ManifestError(f"Unsupported severity value '{action.get('Severity')}'.")
 
@@ -230,9 +240,28 @@ def _soccernet_action_label(action: dict[str, Any]) -> str:
         "elbowing": "elbowing",
     }
     normalized = aliases.get(token)
-    if normalized is None:
-        raise ManifestError(f"Unsupported SoccerNet action class '{raw_label}'.")
-    return normalized
+    if normalized is not None:
+        return normalized
+
+    if "standing" in token and "tack" in token:
+        return "standing_tackle"
+    if "tack" in token:
+        return "tackle"
+    if "hold" in token or "pull" in token or "grab" in token:
+        return "holding"
+    if "push" in token or "charge" in token:
+        return "pushing"
+    if "challenge" in token or "shoulder" in token:
+        return "challenge"
+    if "dive" in token or "simulation" in token:
+        return "dive"
+    if "high" in token and "leg" in token:
+        return "high_leg"
+    if "kick" in token or "stamp" in token or "stud" in token:
+        return "high_leg"
+    if "elbow" in token or "arm" in token:
+        return "elbowing"
+    return "unknown"
 
 
 def _soccernet_views(action: dict[str, Any]) -> list[dict[str, Any]]:
@@ -275,7 +304,12 @@ def _records_from_action(
     if "Clips" in action and "Action class" in action:
         action = dict(action)
         action.setdefault("action_id", action.get("id"))
-        action["sanction_label"] = _soccernet_sanction_label(action)
+        try:
+            action["sanction_label"] = _soccernet_sanction_label(action)
+        except ManifestError as exc:
+            if str(exc).startswith("skip-"):
+                return []
+            raise
         action["action_type_label"] = _soccernet_action_label(action)
         action["views"] = _soccernet_views(action)
 
