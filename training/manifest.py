@@ -130,6 +130,15 @@ def _extract_actions(payload: Any) -> list[dict[str, Any]]:
             value = payload.get(key)
             if isinstance(value, list):
                 return [item for item in value if isinstance(item, dict)]
+        actions_map = payload.get("Actions")
+        if isinstance(actions_map, dict):
+            extracted: list[dict[str, Any]] = []
+            for key, value in actions_map.items():
+                if isinstance(value, dict):
+                    enriched = dict(value)
+                    enriched.setdefault("id", key)
+                    extracted.append(enriched)
+            return extracted
     raise ManifestError("Could not find an action list in the provided MVFoul annotations.")
 
 
@@ -169,6 +178,76 @@ def _resolve_video_path(
     return resolved, relative
 
 
+def _soccernet_sanction_label(action: dict[str, Any]) -> str:
+    offence = normalize_token(str(action.get("Offence", "")))
+    severity = normalize_token(str(action.get("Severity", "")))
+    handball = normalize_token(str(action.get("Handball", "")))
+
+    if handball == "handball":
+        raise ManifestError("Handball samples are outside the current VARLens v1 foul taxonomy.")
+
+    if offence in {"", "no offence", "between"}:
+        return "no_offence"
+    if offence != "offence":
+        raise ManifestError(f"Unsupported offence label '{action.get('Offence')}'.")
+
+    if severity in {"0", "0 0", "0.0"}:
+        return "offence_no_card"
+    if severity in {"1", "1 0", "1.0"}:
+        return "offence_yellow"
+    if severity in {"2", "2 0", "2.0", "3", "3 0", "3.0"}:
+        return "offence_red"
+    raise ManifestError(f"Unsupported severity value '{action.get('Severity')}'.")
+
+
+def _soccernet_action_label(action: dict[str, Any]) -> str:
+    raw_label = str(action.get("Action class", ""))
+    token = normalize_token(raw_label)
+    if token == "":
+        return "unknown"
+
+    aliases = {
+        "standing tackle": "standing_tackle",
+        "tackle": "tackle",
+        "holding": "holding",
+        "pushing": "pushing",
+        "challenge": "challenge",
+        "dive": "dive",
+        "high leg": "high_leg",
+        "elbowing": "elbowing",
+    }
+    normalized = aliases.get(token)
+    if normalized is None:
+        raise ManifestError(f"Unsupported SoccerNet action class '{raw_label}'.")
+    return normalized
+
+
+def _soccernet_views(action: dict[str, Any]) -> list[dict[str, Any]]:
+    raw_clips = action.get("Clips")
+    if not isinstance(raw_clips, list) or not raw_clips:
+        raise ManifestError(f"Action '{action.get('id', 'unknown')}' has no SoccerNet clips.")
+
+    views: list[dict[str, Any]] = []
+    for clip_index, clip in enumerate(raw_clips):
+        if not isinstance(clip, dict):
+            raise ManifestError("SoccerNet clip entries must be JSON objects.")
+        clip_url = clip.get("Url")
+        if not clip_url:
+            raise ManifestError("SoccerNet clip entry is missing 'Url'.")
+        clip_path = Path(str(clip_url)).as_posix()
+        if not clip_path.lower().endswith(".mp4"):
+            clip_path = f"{clip_path}.mp4"
+        camera_type = str(clip.get("Camera type", ""))
+        views.append(
+            {
+                "id": f"clip-{clip_index:02d}",
+                "video_path": clip_path,
+                "view_type": camera_type,
+            }
+        )
+    return views
+
+
 def _records_from_action(
     *,
     action: dict[str, Any],
@@ -180,6 +259,13 @@ def _records_from_action(
     action_lookup: dict[str, str],
     verify_files: bool,
 ) -> list[ManifestRecord]:
+    if "Clips" in action and "Action class" in action:
+        action = dict(action)
+        action.setdefault("action_id", action.get("id"))
+        action["sanction_label"] = _soccernet_sanction_label(action)
+        action["action_type_label"] = _soccernet_action_label(action)
+        action["views"] = _soccernet_views(action)
+
     action_id = str(
         _first_present(action, "id", "action_id", "uid") or f"{annotation_path.stem}-{action_index:05d}"
     )

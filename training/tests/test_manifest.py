@@ -86,3 +86,64 @@ def test_load_manifest_records_and_build_label_maps():
     assert len(records) == 2
     assert label2id == {"offence_no_card": 0, "offence_yellow": 1}
     assert id2label == {0: "offence_no_card", 1: "offence_yellow"}
+
+
+def test_build_manifest_document_supports_official_soccernet_actions():
+    case_dir = _prepare_case_dir("training-test-manifest-soccernet")
+    annotations = case_dir / "train_annotations.json"
+    video_root = case_dir / "Dataset" / "Train" / "action_0"
+    video_root.mkdir(parents=True, exist_ok=True)
+    (video_root / "clip_0.mp4").write_bytes(b"fake-clip-0")
+    (video_root / "clip_1.mp4").write_bytes(b"fake-clip-1")
+
+    annotations.write_text(
+        """
+        {
+          "Set": "Train",
+          "Number of actions": 1,
+          "Actions": {
+            "0": {
+              "UrlLocal": "england_epl\\\\2014-2015\\\\2015-02-21 - 18-00 Chelsea 1 - 1 Burnley",
+              "Offence": "Offence",
+              "Contact": "With contact",
+              "Bodypart": "Upper body",
+              "Upper body part": "Use of shoulder",
+              "Action class": "Challenge",
+              "Severity": "1.0",
+              "Multiple fouls": "",
+              "Try to play": "",
+              "Touch ball": "",
+              "Handball": "No handball",
+              "Handball offence": "",
+              "Clips": [
+                {
+                  "Url": "Dataset/Train/action_0/clip_0",
+                  "Camera type": "Main camera center",
+                  "Timestamp": 1730826,
+                  "Replay speed": 1.0
+                },
+                {
+                  "Url": "Dataset/Train/action_0/clip_1",
+                  "Camera type": "Close-up player or field referee",
+                  "Timestamp": 1744173,
+                  "Replay speed": 1.8
+                }
+              ]
+            }
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    document = build_manifest_document(
+        annotation_paths=[annotations],
+        video_root=case_dir,
+        default_split="train",
+        verify_files=True,
+    )
+
+    assert document["summary"]["record_count"] == 2
+    assert document["summary"]["split_counts"]["train"]["actions"] == 1
+    assert document["records"][0]["sanction_label"] == "offence_yellow"
+    assert document["records"][0]["action_type_label"] == "challenge"
