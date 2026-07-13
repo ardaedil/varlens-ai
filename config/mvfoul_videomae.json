@@ -14,5 +14,8 @@
   "warmup_ratio": 0.1,
   "weight_decay": 0.01,
   "logging_steps": 10,
+  "class_weighting": "effective_num",
+  "class_weight_beta": 0.9999,
+  "label_smoothing": 0.0,
   "save_only_model": true
 }

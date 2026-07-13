@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import random
 import sys
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -37,6 +39,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--warmup-ratio", type=float)
     parser.add_argument("--weight-decay", type=float)
     parser.add_argument("--logging-steps", type=int)
+    parser.add_argument(
+        "--class-weighting",
+        choices=["none", "inverse_frequency", "effective_num"],
+    )
+    parser.add_argument("--class-weight-beta", type=float)
+    parser.add_argument("--label-smoothing", type=float)
     parser.add_argument("--num-workers", type=int, default=0)
     parser.add_argument("--max-train-samples", type=int)
     parser.add_argument("--max-eval-samples", type=int)
@@ -64,6 +72,9 @@ def load_training_config(config_path: Path, args: argparse.Namespace) -> dict[st
         "warmup_ratio": args.warmup_ratio,
         "weight_decay": args.weight_decay,
         "logging_steps": args.logging_steps,
+        "class_weighting": args.class_weighting,
+        "class_weight_beta": args.class_weight_beta,
+        "label_smoothing": args.label_smoothing,
     }
     for key, value in overrides.items():
         if value is not None:
@@ -84,6 +95,9 @@ def load_training_config(config_path: Path, args: argparse.Namespace) -> dict[st
     config.setdefault("warmup_ratio", 0.1)
     config.setdefault("weight_decay", 0.01)
     config.setdefault("logging_steps", 10)
+    config.setdefault("class_weighting", "effective_num")
+    config.setdefault("class_weight_beta", 0.9999)
+    config.setdefault("label_smoothing", 0.0)
     config.setdefault("save_only_model", True)
     config.setdefault("model_version", f"videomae-mvfoul-v1-{config['task']}")
     return config
@@ -103,6 +117,43 @@ def slice_records(records: list[Any], limit: int | None) -> list[Any]:
     return records[:limit]
 
 
+def count_labels(records: list[Any], *, label_field: str, labels: list[str]) -> dict[str, int]:
+    counts = Counter(getattr(record, label_field) for record in records)
+    return {label: counts.get(label, 0) for label in labels}
+
+
+def compute_class_weights(
+    counts: dict[str, int],
+    *,
+    strategy: str,
+    beta: float = 0.9999,
+) -> list[float]:
+    """Return mean-one weights in the supplied label order."""
+    if strategy not in {"none", "inverse_frequency", "effective_num"}:
+        raise ValueError(f"Unsupported class-weighting strategy '{strategy}'.")
+    if not counts:
+        raise ValueError("At least one class is required to compute class weights.")
+    if any(count <= 0 for count in counts.values()):
+        missing = [label for label, count in counts.items() if count <= 0]
+        raise ValueError(f"Cannot compute class weights for classes without training samples: {missing}")
+    if strategy == "none":
+        return [1.0 for _ in counts]
+    if not 0.0 <= beta < 1.0:
+        raise ValueError("class-weight-beta must be greater than or equal to 0 and less than 1.")
+
+    total = sum(counts.values())
+    class_count = len(counts)
+    if strategy == "inverse_frequency":
+        raw_weights = [total / (class_count * count) for count in counts.values()]
+    else:
+        raw_weights = [
+            (1.0 - beta) / (1.0 - math.pow(beta, count)) if beta else 1.0
+            for count in counts.values()
+        ]
+    mean_weight = sum(raw_weights) / len(raw_weights)
+    return [round(weight / mean_weight, 6) for weight in raw_weights]
+
+
 def persist_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -117,6 +168,8 @@ def write_dry_run_summary(
     train_records: list[Any],
     eval_records: list[Any],
     test_records: list[Any],
+    train_label_counts: dict[str, int],
+    class_weights: list[float],
 ) -> None:
     clip_duration = None
     if config["num_frames"]:
@@ -141,6 +194,11 @@ def write_dry_run_summary(
         "train_summary": summarize_records(train_records),
         "eval_summary": summarize_records(eval_records),
         "test_summary": summarize_records(test_records),
+        "class_weighting": config["class_weighting"],
+        "class_weight_beta": config["class_weight_beta"],
+        "label_smoothing": config["label_smoothing"],
+        "train_label_counts": train_label_counts,
+        "class_weights": class_weights,
     }
     persist_json(args.output_dir / "dry-run-summary.json", payload)
     print(f"Dry run summary written to {args.output_dir / 'dry-run-summary.json'}")
@@ -175,6 +233,14 @@ def main() -> None:
     if not eval_records:
         raise SystemExit(f"No evaluation records found for split '{config['eval_split']}'.")
 
+    ordered_labels = [id2label[index] for index in range(len(id2label))]
+    train_label_counts = count_labels(train_records, label_field=label_field, labels=ordered_labels)
+    class_weights = compute_class_weights(
+        train_label_counts,
+        strategy=config["class_weighting"],
+        beta=config["class_weight_beta"],
+    )
+
     if args.dry_run:
         write_dry_run_summary(
             args=args,
@@ -184,6 +250,8 @@ def main() -> None:
             train_records=train_records,
             eval_records=eval_records,
             test_records=test_records,
+            train_label_counts=train_label_counts,
+            class_weights=class_weights,
         )
         return
 
@@ -345,6 +413,21 @@ def main() -> None:
             "balanced_accuracy": metrics["balanced_accuracy"],
         }
 
+    class_weights_tensor = torch.tensor(class_weights, dtype=torch.float32)
+
+    class WeightedLossTrainer(Trainer):
+        def compute_loss(self, model: Any, inputs: dict[str, Any], return_outputs: bool = False, **kwargs: Any):
+            labels = inputs.pop("labels")
+            outputs = model(**inputs)
+            weights = class_weights_tensor.to(outputs.logits.device)
+            loss = torch.nn.functional.cross_entropy(
+                outputs.logits,
+                labels,
+                weight=weights,
+                label_smoothing=config["label_smoothing"],
+            )
+            return (loss, outputs) if return_outputs else loss
+
     training_args = TrainingArguments(
         output_dir=str(args.output_dir),
         remove_unused_columns=False,
@@ -364,7 +447,7 @@ def main() -> None:
         report_to=[],
     )
 
-    trainer = Trainer(
+    trainer = WeightedLossTrainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
@@ -388,8 +471,32 @@ def main() -> None:
         "fps": fps,
         "num_frames": num_frames,
         "clip_duration_seconds": round(clip_duration, 3),
+        "class_weighting": config["class_weighting"],
+        "class_weight_beta": config["class_weight_beta"],
+        "label_smoothing": config["label_smoothing"],
+        "train_label_counts": train_label_counts,
+        "class_weights": class_weights,
     }
-    train_summary["eval_metrics"] = trainer.evaluate()
+    eval_predictions = trainer.predict(eval_dataset, metric_key_prefix="eval")
+    eval_predicted_ids = np.argmax(eval_predictions.predictions, axis=1).tolist()
+    eval_reference_ids = eval_predictions.label_ids.tolist()
+    train_summary["eval_metrics"] = compute_classification_metrics(
+        eval_reference_ids,
+        eval_predicted_ids,
+        id2label=id2label,
+    )
+    train_summary["eval_runtime_metrics"] = eval_predictions.metrics
+    persist_json(
+        args.output_dir / "eval_predictions.json",
+        {
+            "model_version": config["model_version"],
+            "task": config["task"],
+            "split": config["eval_split"],
+            "references": eval_reference_ids,
+            "predictions": eval_predicted_ids,
+            "id2label": {str(key): value for key, value in id2label.items()},
+        },
+    )
 
     if test_dataset is not None:
         test_predictions = trainer.predict(test_dataset)
@@ -403,6 +510,9 @@ def main() -> None:
         persist_json(
             args.output_dir / "test_predictions.json",
             {
+                "model_version": config["model_version"],
+                "task": config["task"],
+                "split": config["test_split"],
                 "references": reference_ids,
                 "predictions": predicted_ids,
                 "id2label": {str(key): value for key, value in id2label.items()},

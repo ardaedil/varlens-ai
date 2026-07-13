@@ -73,5 +73,7 @@ VARLENS_ACTION_MODEL_DIR=output/videomae-action
 - `training.run_mvfoul_pipeline` can orchestrate manifest preparation, both task runs, evaluation, model-card export, and API env-file generation.
 - The dry-run path works without `torch`, `transformers`, or `pytorchvideo`.
 - The training path follows the VideoMAE recipe: derive normalization and resize settings from the image processor, apply temporal subsampling, and fine-tune a classification head on top of the pretrained encoder.
+- Training uses effective-number class weighting by default, computed from the training split only. The selected strategy, class counts, and weights are recorded in `training_summary.json` and the dry-run summary. Use `--class-weighting none` to reproduce unweighted cross-entropy, or `--class-weighting inverse_frequency` for a stronger correction.
+- Each real run writes both `eval_predictions.json` and `test_predictions.json`, with per-class precision, recall, F1, support, and a confusion matrix summarized in `training_summary.json`.
 - The serving path expects two fine-tuned checkpoints: one for sanction labels and one for action-type labels.
 - The current training script assumes action clips are already temporally localized. It does not yet implement multi-clip test-time aggregation or confidence calibration.
