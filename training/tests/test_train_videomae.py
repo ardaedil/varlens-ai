@@ -1,7 +1,12 @@
 from pathlib import Path
 from types import SimpleNamespace
 
-from training.train_videomae import compute_class_weights, compute_sample_weights, load_training_config
+from training.train_videomae import (
+    DEFAULT_CONFIG_PATH,
+    compute_class_weights,
+    compute_sample_weights,
+    load_training_config,
+)
 
 
 def test_effective_number_weights_are_mean_one_and_favor_rare_classes():
@@ -64,6 +69,38 @@ def test_action_defaults_enable_focal_loss_and_weighted_sampling():
     )
 
     config = load_training_config(config_path, args)
+
+    assert config["loss_function"] == "focal"
+    assert config["train_sampler"] == "weighted_random"
+
+
+def test_default_config_preserves_action_specific_quality_settings():
+    args = SimpleNamespace(
+        task="action",
+        train_split=None,
+        eval_split=None,
+        test_split=None,
+        model_checkpoint=None,
+        model_version=None,
+        sample_rate=None,
+        fps=None,
+        num_frames=None,
+        learning_rate=None,
+        num_train_epochs=None,
+        per_device_train_batch_size=None,
+        per_device_eval_batch_size=None,
+        warmup_ratio=None,
+        weight_decay=None,
+        logging_steps=None,
+        class_weighting=None,
+        class_weight_beta=None,
+        label_smoothing=None,
+        loss_function=None,
+        focal_gamma=None,
+        train_sampler=None,
+    )
+
+    config = load_training_config(DEFAULT_CONFIG_PATH, args)
 
     assert config["loss_function"] == "focal"
     assert config["train_sampler"] == "weighted_random"
