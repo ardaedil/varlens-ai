@@ -45,6 +45,9 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--class-weight-beta", type=float)
     parser.add_argument("--label-smoothing", type=float)
+    parser.add_argument("--loss-function", choices=["cross_entropy", "focal"])
+    parser.add_argument("--focal-gamma", type=float)
+    parser.add_argument("--train-sampler", choices=["none", "weighted_random"])
     parser.add_argument("--num-workers", type=int, default=0)
     parser.add_argument("--max-train-samples", type=int)
     parser.add_argument("--max-eval-samples", type=int)
@@ -75,6 +78,9 @@ def load_training_config(config_path: Path, args: argparse.Namespace) -> dict[st
         "class_weighting": args.class_weighting,
         "class_weight_beta": args.class_weight_beta,
         "label_smoothing": args.label_smoothing,
+        "loss_function": args.loss_function,
+        "focal_gamma": args.focal_gamma,
+        "train_sampler": args.train_sampler,
     }
     for key, value in overrides.items():
         if value is not None:
@@ -98,6 +104,9 @@ def load_training_config(config_path: Path, args: argparse.Namespace) -> dict[st
     config.setdefault("class_weighting", "effective_num")
     config.setdefault("class_weight_beta", 0.9999)
     config.setdefault("label_smoothing", 0.0)
+    config.setdefault("loss_function", "focal" if config["task"] == "action" else "cross_entropy")
+    config.setdefault("focal_gamma", 2.0)
+    config.setdefault("train_sampler", "weighted_random" if config["task"] == "action" else "none")
     config.setdefault("save_only_model", True)
     config.setdefault("model_version", f"videomae-mvfoul-v1-{config['task']}")
     return config
@@ -154,6 +163,17 @@ def compute_class_weights(
     return [round(weight / mean_weight, 6) for weight in raw_weights]
 
 
+def compute_sample_weights(
+    records: list[Any],
+    *,
+    label_field: str,
+    label_weights: dict[str, float],
+) -> list[float]:
+    if not records:
+        return []
+    return [float(label_weights[getattr(record, label_field)]) for record in records]
+
+
 def persist_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -197,6 +217,9 @@ def write_dry_run_summary(
         "class_weighting": config["class_weighting"],
         "class_weight_beta": config["class_weight_beta"],
         "label_smoothing": config["label_smoothing"],
+        "loss_function": config["loss_function"],
+        "focal_gamma": config["focal_gamma"],
+        "train_sampler": config["train_sampler"],
         "train_label_counts": train_label_counts,
         "class_weights": class_weights,
     }
@@ -261,7 +284,7 @@ def main() -> None:
         from pytorchvideo.data.encoded_video import EncodedVideo
         from pytorchvideo.transforms import ApplyTransformToKey, Normalize, RandomShortSideScale
         from pytorchvideo.transforms import UniformTemporalSubsample
-        from torch.utils.data import Dataset
+        from torch.utils.data import Dataset, WeightedRandomSampler
         from torchvision.transforms import Compose, Lambda, RandomCrop, RandomHorizontalFlip, Resize
         from transformers import Trainer, TrainingArguments
         from transformers import VideoMAEForVideoClassification, VideoMAEImageProcessor
@@ -414,18 +437,38 @@ def main() -> None:
         }
 
     class_weights_tensor = torch.tensor(class_weights, dtype=torch.float32)
+    label_weight_map = dict(zip(ordered_labels, class_weights))
+    sample_weights = compute_sample_weights(
+        train_records,
+        label_field=label_field,
+        label_weights=label_weight_map,
+    )
 
     class WeightedLossTrainer(Trainer):
+        def _get_train_sampler(self):
+            if config["train_sampler"] == "weighted_random":
+                weights = torch.tensor(sample_weights, dtype=torch.double)
+                return WeightedRandomSampler(weights, num_samples=len(sample_weights), replacement=True)
+            return super()._get_train_sampler()
+
         def compute_loss(self, model: Any, inputs: dict[str, Any], return_outputs: bool = False, **kwargs: Any):
             labels = inputs.pop("labels")
             outputs = model(**inputs)
             weights = class_weights_tensor.to(outputs.logits.device)
-            loss = torch.nn.functional.cross_entropy(
+            per_example_loss = torch.nn.functional.cross_entropy(
                 outputs.logits,
                 labels,
                 weight=weights,
                 label_smoothing=config["label_smoothing"],
+                reduction="none",
             )
+            if config["loss_function"] == "focal":
+                probabilities = torch.softmax(outputs.logits, dim=-1)
+                true_class_probabilities = probabilities.gather(1, labels.unsqueeze(1)).squeeze(1)
+                focal_factor = torch.pow(1.0 - true_class_probabilities, config["focal_gamma"])
+                loss = (focal_factor * per_example_loss).mean()
+            else:
+                loss = per_example_loss.mean()
             return (loss, outputs) if return_outputs else loss
 
     training_args = TrainingArguments(
@@ -474,8 +517,12 @@ def main() -> None:
         "class_weighting": config["class_weighting"],
         "class_weight_beta": config["class_weight_beta"],
         "label_smoothing": config["label_smoothing"],
+        "loss_function": config["loss_function"],
+        "focal_gamma": config["focal_gamma"],
+        "train_sampler": config["train_sampler"],
         "train_label_counts": train_label_counts,
         "class_weights": class_weights,
+        "best_checkpoint": trainer.state.best_model_checkpoint,
     }
     eval_predictions = trainer.predict(eval_dataset, metric_key_prefix="eval")
     eval_predicted_ids = np.argmax(eval_predictions.predictions, axis=1).tolist()
