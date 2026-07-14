@@ -57,9 +57,12 @@ def test_action_defaults_enable_focal_loss_and_weighted_sampling():
         num_train_epochs=None,
         per_device_train_batch_size=None,
         per_device_eval_batch_size=None,
+        gradient_accumulation_steps=None,
         warmup_ratio=None,
         weight_decay=None,
         logging_steps=None,
+        fp16=None,
+        bf16=None,
         class_weighting=None,
         class_weight_beta=None,
         label_smoothing=None,
@@ -89,9 +92,12 @@ def test_default_config_preserves_action_specific_quality_settings():
         num_train_epochs=None,
         per_device_train_batch_size=None,
         per_device_eval_batch_size=None,
+        gradient_accumulation_steps=None,
         warmup_ratio=None,
         weight_decay=None,
         logging_steps=None,
+        fp16=None,
+        bf16=None,
         class_weighting=None,
         class_weight_beta=None,
         label_smoothing=None,
@@ -104,3 +110,41 @@ def test_default_config_preserves_action_specific_quality_settings():
 
     assert config["loss_function"] == "focal"
     assert config["train_sampler"] == "weighted_random"
+
+
+def test_training_speed_options_are_loaded_from_cli():
+    args = SimpleNamespace(
+        task="action",
+        train_split=None,
+        eval_split=None,
+        test_split=None,
+        model_checkpoint=None,
+        model_version=None,
+        sample_rate=None,
+        fps=None,
+        num_frames=None,
+        learning_rate=None,
+        num_train_epochs=None,
+        per_device_train_batch_size=4,
+        per_device_eval_batch_size=4,
+        gradient_accumulation_steps=2,
+        warmup_ratio=None,
+        weight_decay=None,
+        logging_steps=None,
+        fp16=True,
+        bf16=None,
+        class_weighting=None,
+        class_weight_beta=None,
+        label_smoothing=None,
+        loss_function=None,
+        focal_gamma=None,
+        train_sampler=None,
+    )
+
+    config = load_training_config(DEFAULT_CONFIG_PATH, args)
+
+    assert config["per_device_train_batch_size"] == 4
+    assert config["per_device_eval_batch_size"] == 4
+    assert config["gradient_accumulation_steps"] == 2
+    assert config["fp16"] is True
+    assert config["bf16"] is False

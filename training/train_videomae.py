@@ -36,9 +36,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--num-train-epochs", type=float)
     parser.add_argument("--per-device-train-batch-size", type=int)
     parser.add_argument("--per-device-eval-batch-size", type=int)
+    parser.add_argument("--gradient-accumulation-steps", type=int)
     parser.add_argument("--warmup-ratio", type=float)
     parser.add_argument("--weight-decay", type=float)
     parser.add_argument("--logging-steps", type=int)
+    parser.add_argument("--fp16", action=argparse.BooleanOptionalAction)
+    parser.add_argument("--bf16", action=argparse.BooleanOptionalAction)
     parser.add_argument(
         "--class-weighting",
         choices=["none", "inverse_frequency", "effective_num"],
@@ -72,9 +75,12 @@ def load_training_config(config_path: Path, args: argparse.Namespace) -> dict[st
         "num_train_epochs": args.num_train_epochs,
         "per_device_train_batch_size": args.per_device_train_batch_size,
         "per_device_eval_batch_size": args.per_device_eval_batch_size,
+        "gradient_accumulation_steps": args.gradient_accumulation_steps,
         "warmup_ratio": args.warmup_ratio,
         "weight_decay": args.weight_decay,
         "logging_steps": args.logging_steps,
+        "fp16": args.fp16,
+        "bf16": args.bf16,
         "class_weighting": args.class_weighting,
         "class_weight_beta": args.class_weight_beta,
         "label_smoothing": args.label_smoothing,
@@ -98,9 +104,12 @@ def load_training_config(config_path: Path, args: argparse.Namespace) -> dict[st
     config.setdefault("num_train_epochs", 4)
     config.setdefault("per_device_train_batch_size", 2)
     config.setdefault("per_device_eval_batch_size", 2)
+    config.setdefault("gradient_accumulation_steps", 1)
     config.setdefault("warmup_ratio", 0.1)
     config.setdefault("weight_decay", 0.01)
     config.setdefault("logging_steps", 10)
+    config.setdefault("fp16", False)
+    config.setdefault("bf16", False)
     config.setdefault("class_weighting", "effective_num")
     config.setdefault("class_weight_beta", 0.9999)
     config.setdefault("label_smoothing", 0.0)
@@ -208,6 +217,11 @@ def write_dry_run_summary(
         "sample_rate": config["sample_rate"],
         "fps": config["fps"],
         "num_frames": config["num_frames"],
+        "per_device_train_batch_size": config["per_device_train_batch_size"],
+        "per_device_eval_batch_size": config["per_device_eval_batch_size"],
+        "gradient_accumulation_steps": config["gradient_accumulation_steps"],
+        "fp16": config["fp16"],
+        "bf16": config["bf16"],
         "clip_duration_seconds": clip_duration,
         "label2id": label2id,
         "id2label": {str(key): value for key, value in id2label.items()},
@@ -479,10 +493,13 @@ def main() -> None:
         learning_rate=config["learning_rate"],
         per_device_train_batch_size=config["per_device_train_batch_size"],
         per_device_eval_batch_size=config["per_device_eval_batch_size"],
+        gradient_accumulation_steps=config["gradient_accumulation_steps"],
         num_train_epochs=config["num_train_epochs"],
         warmup_ratio=config["warmup_ratio"],
         weight_decay=config["weight_decay"],
         logging_steps=config["logging_steps"],
+        fp16=config["fp16"],
+        bf16=config["bf16"],
         load_best_model_at_end=True,
         metric_for_best_model="macro_f1",
         save_only_model=config["save_only_model"],
@@ -513,6 +530,11 @@ def main() -> None:
         "sample_rate": sample_rate,
         "fps": fps,
         "num_frames": num_frames,
+        "per_device_train_batch_size": config["per_device_train_batch_size"],
+        "per_device_eval_batch_size": config["per_device_eval_batch_size"],
+        "gradient_accumulation_steps": config["gradient_accumulation_steps"],
+        "fp16": config["fp16"],
+        "bf16": config["bf16"],
         "clip_duration_seconds": round(clip_duration, 3),
         "class_weighting": config["class_weighting"],
         "class_weight_beta": config["class_weight_beta"],
